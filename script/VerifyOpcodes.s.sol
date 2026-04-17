@@ -35,6 +35,12 @@ contract VerifyOpcodesScript {
         address clzProbe = deployer.deployClzProbe();
         verifier.verifyClz(clzProbe, bytes32(uint256(1)));
 
+        address blobhashProbe = deployer.deployBlobhashProbe();
+        verifier.verifyBlobhash(blobhashProbe, bytes32(uint256(0)));
+
+        address blobbasefeeProbe = deployer.deployBlobbasefeeProbe();
+        verifier.verifyBlobbasefee(blobbasefeeProbe);
+
         VM.stopBroadcast();
     }
 }

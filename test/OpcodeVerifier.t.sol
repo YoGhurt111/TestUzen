@@ -33,13 +33,29 @@ contract OpcodeVerifierTest {
         _assertBytesEq(output, input, "unexpected mcopy output");
     }
 
-    function testClzFailureIsSurfacedCleanly() public {
+    function testClzReturnsLeadingZeroCount() public {
         address probe = deployer.deployClzProbe();
         (bool ok, uint256 value, bytes memory raw) = verifier.verifyClz(probe, bytes32(uint256(1)));
 
-        _assertTrue(!ok, "expected clz probe to fail on unsupported local evm");
-        _assertEq(value, 0, "unexpected clz decoded value");
-        _assertEq(raw.length, 0, "unexpected revert payload length");
+        _assertTrue(ok, "expected clz probe to succeed");
+        _assertEq(value, 255, "unexpected clz decoded value");
+        _assertEq(raw.length, 32, "unexpected return payload length");
+    }
+
+    function testBlobhashReturnsZeroWhenNoBlobHashesArePresent() public {
+        address probe = deployer.deployBlobhashProbe();
+        (bool ok, bytes32 value) = verifier.verifyBlobhash(probe, bytes32(uint256(0)));
+
+        _assertTrue(ok, "expected blobhash probe to succeed");
+        _assertEq(value, bytes32(0), "expected zero blobhash outside blob tx context");
+    }
+
+    function testBlobbasefeeReturnsNonZeroValue() public {
+        address probe = deployer.deployBlobbasefeeProbe();
+        (bool ok, uint256 value) = verifier.verifyBlobbasefee(probe);
+
+        _assertTrue(ok, "expected blobbasefee probe to succeed");
+        _assertTrue(value > 0, "expected non-zero blob base fee");
     }
 
     function _assertTrue(bool condition, string memory reason) internal pure {

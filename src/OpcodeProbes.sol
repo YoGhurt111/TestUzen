@@ -48,6 +48,28 @@ library OpcodeRuntimes {
         return hex"5f351e5f5260205ff3";
     }
 
+    function blobhashRuntime() internal pure returns (bytes memory) {
+        // 5f       PUSH0
+        // 35       CALLDATALOAD
+        // 49       BLOBHASH
+        // 5f       PUSH0
+        // 52       MSTORE
+        // 60 20    PUSH1 0x20
+        // 5f       PUSH0
+        // f3       RETURN
+        return hex"5f35495f5260205ff3";
+    }
+
+    function blobbasefeeRuntime() internal pure returns (bytes memory) {
+        // 4a       BLOBBASEFEE
+        // 5f       PUSH0
+        // 52       MSTORE
+        // 60 20    PUSH1 0x20
+        // 5f       PUSH0
+        // f3       RETURN
+        return hex"4a5f5260205ff3";
+    }
+
     function toInitCode(bytes memory runtime) internal pure returns (bytes memory) {
         if (runtime.length > type(uint8).max) revert RuntimeTooLarge();
 
@@ -85,6 +107,16 @@ contract OpcodeDeployer {
         probe = deploy(OpcodeRuntimes.clzRuntime());
         emit ProbeDeployed("CLZ", probe);
     }
+
+    function deployBlobhashProbe() external returns (address probe) {
+        probe = deploy(OpcodeRuntimes.blobhashRuntime());
+        emit ProbeDeployed("BLOBHASH", probe);
+    }
+
+    function deployBlobbasefeeProbe() external returns (address probe) {
+        probe = deploy(OpcodeRuntimes.blobbasefeeRuntime());
+        emit ProbeDeployed("BLOBBASEFEE", probe);
+    }
 }
 
 contract OpcodeVerifier {
@@ -120,5 +152,23 @@ contract OpcodeVerifier {
             value = abi.decode(raw, (uint256));
         }
         emit ProbeResult("CLZ", probe, ok, raw);
+    }
+
+    function verifyBlobhash(address probe, bytes32 input) external returns (bool ok, bytes32 value) {
+        bytes memory raw;
+        (ok, raw) = probe.call(abi.encode(input));
+        if (ok && raw.length == 32) {
+            value = abi.decode(raw, (bytes32));
+        }
+        emit ProbeResult("BLOBHASH", probe, ok, raw);
+    }
+
+    function verifyBlobbasefee(address probe) external returns (bool ok, uint256 value) {
+        bytes memory raw;
+        (ok, raw) = probe.call("");
+        if (ok && raw.length == 32) {
+            value = abi.decode(raw, (uint256));
+        }
+        emit ProbeResult("BLOBBASEFEE", probe, ok, raw);
     }
 }

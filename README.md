@@ -1,7 +1,7 @@
 # Opcode Live Verifier
 
 TL;DR:
-This project deploys raw EVM probe contracts and verifies through real transactions whether `TLOAD`, `TSTORE`, `MCOPY`, and `CLZ` actually execute on a target node. It also includes a `zk_gas_spec` scenario suite in a "deploy contract + trigger via tx" form.
+This project deploys raw EVM probe contracts and verifies through real transactions whether `TLOAD`, `TSTORE`, `MCOPY`, `CLZ`, `BLOBHASH`, and `BLOBBASEFEE` actually execute on a target node. It also includes a `zk_gas_spec` scenario suite in a "deploy contract + trigger via tx" form.
 
 ## Contents
 
@@ -18,9 +18,8 @@ This project deploys raw EVM probe contracts and verifies through real transacti
 forge test --offline -vv
 ```
 
-The local `evm_version` is `cancun`:
-- `TLOAD/TSTORE` and `MCOPY` are expected to succeed
-- `CLZ` belongs to a later fork and is expected to fail locally by default, which helps verify that the script can correctly identify "unsupported"
+The local config in this repository currently enables:
+- `TLOAD/TSTORE`, `MCOPY`, `CLZ`, `BLOBHASH`, and `BLOBBASEFEE`
 
 `--offline` is used to avoid a Foundry crash in this environment when it attempts online signature decoding. This does not affect the project’s local tests themselves.
 
@@ -61,7 +60,7 @@ The opcode verification script sends real transactions in this order:
 
 1. Deploy `OpcodeDeployer`
 2. Deploy `OpcodeVerifier`
-3. Deploy the `TLOAD/TSTORE`, `MCOPY`, and `CLZ` probes
+3. Deploy the `TLOAD/TSTORE`, `MCOPY`, `CLZ`, `BLOBHASH`, and `BLOBBASEFEE` probes
 4. Send real invocation transactions through `OpcodeVerifier`
 
 Each verification emits:
@@ -72,7 +71,9 @@ Interpretation:
 
 - `TLOAD_TSTORE`: `success = true` and decoded `raw` equals the written value means supported
 - `MCOPY`: `success = true` and `raw` equals the input byte string means supported
-- `CLZ`: `success = true` and returns the leading-zero count means supported; `success = false` means the current node has not enabled that opcode
+- `CLZ`: `success = true` and returns the leading-zero count means supported
+- `BLOBHASH`: `success = true` and returns zero for index `0` outside blob-tx context means the opcode executed correctly
+- `BLOBBASEFEE`: `success = true` and returns a non-zero value means the opcode executed correctly
 
 ## Reading Results
 
@@ -83,6 +84,62 @@ cast receipt <TX_HASH> --rpc-url "$RPC_URL"
 ```
 
 Or inspect the `ProbeResult` event in a block explorer.
+
+## Direct RPC Checks
+
+You can also test `BLOBHASH` and `BLOBBASEFEE` directly with `eth_call` state override.
+
+`BLOBHASH(0)`:
+
+```bash
+curl -sS "$RPC_URL" \
+  -H 'content-type: application/json' \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"eth_call",
+    "params":[
+      {"to":"0x000000000000000000000000000000000000dEaD"},
+      "latest",
+      {
+        "0x000000000000000000000000000000000000dEaD":{
+          "code":"0x5f35495f5260205ff3"
+        }
+      }
+    ]
+  }'
+```
+
+Expected success result outside blob-tx context:
+
+```text
+0x0000000000000000000000000000000000000000000000000000000000000000
+```
+
+`BLOBBASEFEE`:
+
+```bash
+curl -sS "$RPC_URL" \
+  -H 'content-type: application/json' \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"eth_call",
+    "params":[
+      {"to":"0x000000000000000000000000000000000000dEaD"},
+      "latest",
+      {
+        "0x000000000000000000000000000000000000dEaD":{
+          "code":"0x4a5f5260205ff3"
+        }
+      }
+    ]
+  }'
+```
+
+Expected success result:
+- a 32-byte non-zero integer if the opcode is supported
+- an execution error such as `invalid opcode` if it is not supported
 
 ## ZK Gas Tx Cases
 
