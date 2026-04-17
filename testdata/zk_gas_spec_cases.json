@@ -1,0 +1,461 @@
+{
+  "spec_source": {
+    "repository": "taikoxyz/taiko-mono",
+    "path": "packages/protocol/docs/zk_gas_spec.md",
+    "ref": "main",
+    "sha": "f31286f5b760ef29bcc06e2fd2559a0ee952a670"
+  },
+  "constants": {
+    "block_zk_gas_limit": 100000000,
+    "default_opcode_multiplier": 65535,
+    "default_precompile_multiplier": 65535,
+    "spawn_estimate": {
+      "0xf1": 12500,
+      "0xf2": 12500,
+      "0xf4": 3500,
+      "0xfa": 3500,
+      "0xf0": 37000,
+      "0xf5": 44500
+    },
+    "opcode_multiplier_anchors": {
+      "0x01": 12,
+      "0x20": 85,
+      "0x5c": 1,
+      "0x5d": 6,
+      "0x5e": 5,
+      "0xf1": 25,
+      "0xf4": 21,
+      "0xfa": 24,
+      "0xf5": 1,
+      "0xf3": 0
+    },
+    "precompile_multiplier_anchors": {
+      "0x04": 2,
+      "0x05": 1363
+    }
+  },
+  "cases": [
+    {
+      "id": "OP-001",
+      "hook": "on_opcode",
+      "description": "Normal opcode uses step_gas multiplied by opcode multiplier",
+      "input": {
+        "opcode": "0x01",
+        "step_gas": 3,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 3,
+        "zk_delta": 36,
+        "tx_zk_gas_used": 36,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-002",
+      "hook": "on_opcode",
+      "description": "Dynamic gas opcode still uses observed step_gas outside spawn special cases",
+      "input": {
+        "opcode": "0x20",
+        "step_gas": 42,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 1000,
+        "tx_zk_gas_used": 50
+      },
+      "expected": {
+        "raw_gas": 42,
+        "zk_delta": 3570,
+        "tx_zk_gas_used": 3620,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-003",
+      "hook": "on_opcode",
+      "description": "CALL that creates a child frame uses fixed spawn estimate instead of observed step gas",
+      "input": {
+        "opcode": "0xf1",
+        "step_gas": 50000,
+        "child_frame_created": true,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 12500,
+        "zk_delta": 312500,
+        "tx_zk_gas_used": 312500,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-004",
+      "hook": "on_opcode",
+      "description": "STATICCALL to precompile uses fixed spawn estimate",
+      "input": {
+        "opcode": "0xfa",
+        "step_gas": 19000,
+        "child_frame_created": false,
+        "precompile_invoked": true,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 3500,
+        "zk_delta": 84000,
+        "tx_zk_gas_used": 84000,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-005",
+      "hook": "on_opcode",
+      "description": "Short-circuited spawn opcode falls back to step gas when no child frame and no precompile are created",
+      "input": {
+        "opcode": "0xf4",
+        "step_gas": 2600,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 2600,
+        "zk_delta": 54600,
+        "tx_zk_gas_used": 54600,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-006",
+      "hook": "on_opcode",
+      "description": "CREATE2 uses fixed spawn estimate and its low multiplier",
+      "input": {
+        "opcode": "0xf5",
+        "step_gas": 80000,
+        "child_frame_created": true,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 44500,
+        "zk_delta": 44500,
+        "tx_zk_gas_used": 44500,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-007",
+      "hook": "on_opcode",
+      "description": "Terminal opcode with zero multiplier adds no zk gas",
+      "input": {
+        "opcode": "0xf3",
+        "step_gas": 0,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 1234
+      },
+      "expected": {
+        "raw_gas": 0,
+        "zk_delta": 0,
+        "tx_zk_gas_used": 1234,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-008",
+      "hook": "on_opcode",
+      "description": "TLOAD multiplier anchor is applied as listed in Appendix B",
+      "input": {
+        "opcode": "0x5c",
+        "step_gas": 100,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 100,
+        "zk_delta": 100,
+        "tx_zk_gas_used": 100,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-009",
+      "hook": "on_opcode",
+      "description": "TSTORE multiplier anchor is applied as listed in Appendix B",
+      "input": {
+        "opcode": "0x5d",
+        "step_gas": 100,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 100,
+        "zk_delta": 600,
+        "tx_zk_gas_used": 600,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-010",
+      "hook": "on_opcode",
+      "description": "MCOPY multiplier anchor is applied as listed in Appendix B",
+      "input": {
+        "opcode": "0x5e",
+        "step_gas": 100,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 100,
+        "zk_delta": 500,
+        "tx_zk_gas_used": 500,
+        "halted": false
+      }
+    },
+    {
+      "id": "OP-011",
+      "hook": "on_opcode",
+      "description": "Unknown opcode uses fail-safe multiplier max(uint16)",
+      "input": {
+        "opcode": "0xab",
+        "step_gas": 1,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "raw_gas": 1,
+        "zk_delta": 65535,
+        "tx_zk_gas_used": 65535,
+        "halted": false
+      }
+    },
+    {
+      "id": "PC-001",
+      "hook": "on_precompile",
+      "description": "modexp uses its explicit precompile multiplier",
+      "input": {
+        "precompile_address_low_byte": "0x05",
+        "gas_used": 200,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "zk_delta": 272600,
+        "tx_zk_gas_used": 272600,
+        "halted": false
+      }
+    },
+    {
+      "id": "PC-002",
+      "hook": "on_precompile",
+      "description": "identity precompile uses its low multiplier",
+      "input": {
+        "precompile_address_low_byte": "0x04",
+        "gas_used": 300,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "zk_delta": 600,
+        "tx_zk_gas_used": 600,
+        "halted": false
+      }
+    },
+    {
+      "id": "PC-003",
+      "hook": "on_precompile",
+      "description": "Unknown precompile uses fail-safe multiplier max(uint16)",
+      "input": {
+        "precompile_address_low_byte": "0xfe",
+        "gas_used": 1,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "zk_delta": 65535,
+        "tx_zk_gas_used": 65535,
+        "halted": false
+      }
+    },
+    {
+      "id": "PC-004",
+      "hook": "combined",
+      "description": "CALL to precompile must charge both opcode-side spawn estimate and precompile-side gas",
+      "input": {
+        "opcode": "0xf1",
+        "step_gas": 15000,
+        "child_frame_created": false,
+        "precompile_invoked": true,
+        "precompile_address_low_byte": "0x05",
+        "precompile_gas_used": 200,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "opcode_raw_gas": 12500,
+        "opcode_zk_delta": 312500,
+        "precompile_zk_delta": 272600,
+        "total_tx_zk_gas_used": 585100,
+        "halted_before_next_opcode": false
+      }
+    },
+    {
+      "id": "PC-005",
+      "hook": "combined",
+      "description": "Precompile gas used excludes CALL-family overhead, cold access, memory expansion and value stipend already handled at opcode side",
+      "input": {
+        "opcode": "0xf1",
+        "precompile_address_low_byte": "0x04",
+        "opcode_side_expected_raw_gas": 12500,
+        "precompile_gas_used": 300
+      },
+      "expected": {
+        "opcode_zk_delta": 312500,
+        "precompile_zk_delta": 600,
+        "must_not_include_opcode_overhead_inside_precompile_zk": true
+      }
+    },
+    {
+      "id": "BLK-001",
+      "hook": "execute_block",
+      "description": "Equality with block limit does not halt because the comparison is strict greater-than",
+      "input": {
+        "block_zk_gas_used": 99999964,
+        "tx_zk_gas_used_before_step": 0,
+        "current_step_delta": 36
+      },
+      "expected": {
+        "block_plus_tx_after_step": 100000000,
+        "halted": false
+      }
+    },
+    {
+      "id": "BLK-002",
+      "hook": "execute_block",
+      "description": "Exceeding the block limit by one halts immediately",
+      "input": {
+        "block_zk_gas_used": 99999965,
+        "tx_zk_gas_used_before_step": 0,
+        "current_step_delta": 36
+      },
+      "expected": {
+        "block_plus_tx_after_step": 100000001,
+        "halted": true
+      }
+    },
+    {
+      "id": "BLK-003",
+      "hook": "execute_block",
+      "description": "Offending transaction is fully aborted and remaining transactions are skipped",
+      "input": {
+        "transactions": [
+          {
+            "name": "tx1",
+            "zk_gas_used": 40000000,
+            "halted": false,
+            "state_changes": "commit"
+          },
+          {
+            "name": "tx2",
+            "zk_gas_used": 70000000,
+            "halted": true,
+            "state_changes": "would_commit_without_limit"
+          },
+          {
+            "name": "tx3",
+            "zk_gas_used": 1,
+            "halted": false,
+            "state_changes": "would_commit_if_executed"
+          }
+        ]
+      },
+      "expected": {
+        "committed_transactions": [
+          "tx1"
+        ],
+        "aborted_transactions": [
+          "tx2"
+        ],
+        "skipped_transactions": [
+          "tx3"
+        ],
+        "final_block_zk_gas_used": 40000000
+      }
+    },
+    {
+      "id": "BLK-004",
+      "hook": "execute_block",
+      "description": "System and anchor transactions are included in block-level zk gas accounting",
+      "input": {
+        "transactions": [
+          {
+            "name": "system_tx",
+            "kind": "system",
+            "zk_gas_used": 60000000,
+            "halted": false
+          },
+          {
+            "name": "user_tx",
+            "kind": "user",
+            "zk_gas_used": 40000001,
+            "halted": true
+          }
+        ]
+      },
+      "expected": {
+        "committed_transactions": [
+          "system_tx"
+        ],
+        "aborted_transactions": [
+          "user_tx"
+        ],
+        "final_block_zk_gas_used": 60000000
+      }
+    },
+    {
+      "id": "OVF-001",
+      "hook": "on_opcode",
+      "description": "Multiplication overflow is treated as immediate halt",
+      "input": {
+        "opcode": "0x01",
+        "step_gas": 18446744073709551615,
+        "child_frame_created": false,
+        "precompile_invoked": false,
+        "block_zk_gas_used": 0,
+        "tx_zk_gas_used": 0
+      },
+      "expected": {
+        "overflow_stage": "multiplication",
+        "halted": true
+      }
+    },
+    {
+      "id": "OVF-002",
+      "hook": "limit_check",
+      "description": "Addition overflow in block_zk_gas_used + tx_zk_gas_used is treated as immediate halt",
+      "input": {
+        "block_zk_gas_used": 18446744073709551606,
+        "tx_zk_gas_used": 20
+      },
+      "expected": {
+        "overflow_stage": "addition",
+        "halted": true
+      }
+    }
+  ]
+}
