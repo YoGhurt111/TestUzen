@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
+import { AppendixBZkCases } from "../src/AppendixBZkCases.sol";
 import { ZkGasTxHarness } from "../src/ZkGasTxCases.sol";
 
 interface Vm {
@@ -31,6 +32,17 @@ contract RunZkGasTxCasesScript {
         harness.caseModexp(2, 5, 13);
         harness.caseCreate(41);
         harness.caseCreate2(keccak256("zk-gas-case"), 42);
+
+        AppendixBZkCases appendixBCases = new AppendixBZkCases();
+        uint256 precompileCaseCount = appendixBCases.precompileCaseCount();
+        for (uint256 i; i < precompileCaseCount; ++i) {
+            appendixBCases.runPrecompileCase(i);
+        }
+
+        uint256 opcodeCaseCount = appendixBCases.opcodeCaseCount();
+        for (uint256 i; i < opcodeCaseCount; ++i) {
+            appendixBCases.runOpcodeCase(i);
+        }
 
         VM.stopBroadcast();
     }
